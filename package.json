@@ -1,11 +1,12 @@
 {
   "name": "kasher",
   "version": "1.0.0",
-  "description": "Kasher App",
-  "author": "markeshak00000",
+  "description": "Kasher Windows Cashier Application",
+  "author": "ENG. Mark Eshak | Infinity MEN2",
   "main": "main.js",
   "scripts": {
-    "build:win": "electron-builder --win --x64 --publish never"
+    "start": "electron .",
+    "build:win": "electron-builder --win nsis --x64 --publish never"
   },
   "devDependencies": {
     "electron": "^28.0.0",
@@ -14,10 +15,35 @@
   "build": {
     "appId": "com.kasher.app",
     "productName": "Kasher",
-    "files": ["**/*", "!**/.github/**"],
+    "asar": true,
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "index.html",
+      "main.js",
+      "package.json"
+    ],
+    "artifactName": "${productName} Setup ${version}.${ext}",
     "publish": null,
     "win": {
-      "target": "nsis"
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Kasher",
+      "runAfterFinish": true
     }
   }
 }
