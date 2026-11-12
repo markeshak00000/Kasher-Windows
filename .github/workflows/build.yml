@@ -1,58 +1,69 @@
 name: Build Kasher Windows Installer
 
-"on":
+on:
   push:
     branches:
       - main
+
   workflow_dispatch:
 
 permissions:
   contents: read
 
-concurrency:
-  group: kasher-windows-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
   build:
-    name: Build Windows x64 installer
+    name: Build Kasher Windows x64
     runs-on: windows-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
 
     steps:
       - name: Checkout source
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
 
-      - name: Set up Node.js
+      - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
           node-version: '22'
           package-manager-cache: false
 
-      - name: Install dependencies
-        run: npm install --no-audit --no-fund
-
-      - name: Build Windows installer
-        run: npm run build:win
-
-      - name: Verify installer output
+      - name: Check environment
         shell: pwsh
         run: |
-          if (-not (Test-Path -LiteralPath 'dist')) {
-            throw 'The dist directory was not created by electron-builder.'
+          node --version
+          npm --version
+
+      - name: Install dependencies
+        shell: pwsh
+        run: |
+          npm install --no-audit --no-fund --no-progress --fetch-retries=5 --fetch-retry-factor=2 --fetch-retry-mintimeout=10000 --fetch-retry-maxtimeout=60000
+        timeout-minutes: 30
+
+      - name: Build Windows installer
+        shell: pwsh
+        run: |
+          npm run build:win
+        timeout-minutes: 30
+
+      - name: Verify installer
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "dist")) {
+            throw "Build failed: dist folder was not created."
           }
 
-          $installers = Get-ChildItem -LiteralPath 'dist' -Filter '*.exe' -File
-          if (-not $installers -or $installers.Count -eq 0) {
-            Get-ChildItem -LiteralPath 'dist' -Force | Format-Table Name, Length
-            throw 'No Windows .exe installer was generated in dist/.'
+          $files = @(Get-ChildItem "dist" -Filter "*.exe" -File)
+
+          if ($files.Count -eq 0) {
+            Get-ChildItem "dist" -Force
+            throw "Build failed: No EXE installer found."
           }
 
-          $installers | Format-Table Name, Length, LastWriteTime
+          Write-Host "BUILD SUCCESSFUL"
+          $files | Format-Table Name, Length
 
-      - name: Upload Windows installer
+      - name: Upload Windows Installer
         uses: actions/upload-artifact@v7
         with:
           name: Kasher-Windows-EXE
