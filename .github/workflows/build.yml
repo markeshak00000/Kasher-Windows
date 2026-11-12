@@ -1,16 +1,62 @@
-name: Build Windows EXE
-on: [push]
+name: Build Kasher Windows Installer
+
+"on":
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: kasher-windows-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
+    name: Build Windows x64 installer
     runs-on: windows-latest
+    timeout-minutes: 30
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Checkout source
+        uses: actions/checkout@v5
         with:
-          node-version: 22
-      - run: npm install
-      - run: npm run build:win
-      - uses: actions/upload-artifact@v4
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          package-manager-cache: false
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Build Windows installer
+        run: npm run build:win
+
+      - name: Verify installer output
+        shell: pwsh
+        run: |
+          if (-not (Test-Path -LiteralPath 'dist')) {
+            throw 'The dist directory was not created by electron-builder.'
+          }
+
+          $installers = Get-ChildItem -LiteralPath 'dist' -Filter '*.exe' -File
+          if (-not $installers -or $installers.Count -eq 0) {
+            Get-ChildItem -LiteralPath 'dist' -Force | Format-Table Name, Length
+            throw 'No Windows .exe installer was generated in dist/.'
+          }
+
+          $installers | Format-Table Name, Length, LastWriteTime
+
+      - name: Upload Windows installer
+        uses: actions/upload-artifact@v7
         with:
           name: Kasher-Windows-EXE
           path: dist/*.exe
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
